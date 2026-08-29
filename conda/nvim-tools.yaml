@@ -1,0 +1,20 @@
+# Editor CLI tools for the air-gapped host (conda whitelist / internal channel).
+#   conda env create -f conda/nvim-tools.yaml
+#   conda activate nvim-tools
+#   nvim
+#
+# If a package is missing from your channel, drop that line and install the
+# rest; Neovim only starts a tool when it is on PATH.
+name: nvim-tools
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python >=3.10
+  - ruff
+  - basedpyright
+  - shellcheck
+  - shfmt
+  - pip
+  # pip:
+  #   - basedpyright   # use if the conda package is not on your whitelist

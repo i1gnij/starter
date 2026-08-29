@@ -1,0 +1,6 @@
+# pip install -r requirements-nvim.txt
+# Use your internal/whitelist index, for example:
+#   pip install -r requirements-nvim.txt --index-url https://your-pypi.example/simple
+ruff
+basedpyright
+# python-lsp-server  # only if basedpyright is not allowed on the index
