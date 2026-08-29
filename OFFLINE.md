@@ -1,64 +1,63 @@
-# 无外网服务器：插件怎么选、怎么拷
+# 内网服务器：conda/pip 白名单 + Neovim 插件离线拷贝
 
-行为：
+GitHub 仍不可达时，**Lua 插件继续整包拷贝**。语言工具改走你们已经放开的 **conda / pip 软件源**，不要用 Mason。
 
-- 还没有 `~/.local/share/nvim/lazy/lazy.nvim` 时，允许 git clone（方便在能上网的机器上第一次安装）
-- 插件目录一旦存在（包括从 tar 解开之后），默认不再联网
-- 强制上网更新：`NVIM_ONLINE=1 nvim`
+- 还没有 `~/.local/share/nvim/lazy/lazy.nvim` 时，允许 git clone（在能访问 GitHub 的机器上首次安装）
+- 插件目录一旦存在（包括从 tar 解开之后），默认不再访问 GitHub
+- 强制用 GitHub 更新插件：`NVIM_ONLINE=1 nvim`
 - 强制离线：`NVIM_OFFLINE=1 nvim`
 
-## 选择原则
+先 `conda activate` 再开 Neovim。配置会把 `$CONDA_PREFIX/bin` 插到 `PATH` 前面，并让 basedpyright/pylsp 使用该环境的 `python`。
 
-1. **少插件**：每个插件都要 clone、对齐版本、整包拷贝。能用二进制工具解决的，不要再加插件。
-2. **语言能力用 PATH 上的程序**，不要用 Mason 现下。Mason 会访问 GitHub。
-3. **不要开 `lang.python` extra**：会多装 venv-selector，并顺带 neotest/DAP。跳转/检查用 `ruff` + `basedpyright` 即可。
-4. **Bash 不要依赖 `bash-language-server`**：那是 Node 程序，内网很难带。用 `shellcheck` + `shfmt` + Treesitter 足够日常改脚本。
-5. **Parser 也要一起拷**：Treesitter 语法高亮的 `.so` 在能上网时装好，离线后 `ensure_installed` 为空，避免再去拉 GitHub。
+## 两套来源，不要混用 Mason
 
-## 建议保留的插件（LazyVim 默认里）
+| 东西 | 从哪来 | 不要用 |
+| --- | --- | --- |
+| lazy.nvim、LazyVim、blink、treesitter 等 | 联网机 `:Lazy sync` 后拷 `~/.local/share/nvim/lazy` | 服务器上 `:Lazy update` |
+| Treesitter parser（`.so`） | 联网机 `:TSInstall` 后跟插件一起拷 | 服务器上 `:TSInstall` |
+| `ruff`、`basedpyright`、`shfmt`、`shellcheck` | **conda 或 pip 白名单源** | Mason / GitHub release |
 
-这些是编辑器本身，拷一次就行，和 Python/Bash 无关：
+## 服务器上装语言工具
 
-| 用途 | 插件 |
-| --- | --- |
-| 管理器 / 发行版 | lazy.nvim、LazyVim、snacks.nvim |
-| 补全 | blink.cmp |
-| 语法 | nvim-treesitter、textobjects |
-| LSP 接线 | nvim-lspconfig |
-| 格式化 / lint | conform.nvim、nvim-lint |
-| 跳转 / 键位 / git | flash、which-key、gitsigns |
-| 诊断列表 | trouble、todo-comments |
-| UI | tokyonight、bufferline、lualine、noice、mini.icons、nui |
-| 其它 | mini.pairs、mini.ai、ts-comments、lazydev、grug-far、persistence、plenary |
+专用环境（推荐，避免和业务环境抢依赖）：
 
-本配置已关掉、不必拷的：
+```bash
+conda env create -f conda/nvim-tools.yaml
+conda activate nvim-tools
+```
 
-- **catppuccin**（只留 tokyonight）
-- **nvim-ts-autotag**（HTML/JSX）
-- **Mason 自动安装列表**（仍保留 mason 插件，避免 LazyVim 依赖断掉，但 `ensure_installed = {}`）
+或在当前业务环境里用 pip（换成你们的 index）：
 
-不要为了 Python/Bash 再加的：
+```bash
+pip install -r requirements-nvim.txt --index-url https://your-pypi.example/simple
+```
 
-- telescope / fzf-lua（已有 snacks picker）
-- nvim-cmp 全家桶（已有 blink）
-- neo-tree（已有 snacks explorer）
-- neotest、nvim-dap、debugpy（调试再单独拷二进制和 extra）
-- venv-selector（在项目里 `source .venv` 或设 `PATH` 即可）
-- pyright 的 npm 包（改用单文件/少依赖的 **ruff** + **basedpyright**）
+白名单里没有的包就删掉对应行，缺哪个工具 Neovim 就跳过哪个 LSP，不会硬启动。
 
-## 语言工具（不是 Neovim 插件，请拷二进制或内网包）
+| 包 | 作用 | 没有时 |
+| --- | --- | --- |
+| **ruff** | Python 诊断、整理 import、格式化 | 不启 ruff LSP / ruff format |
+| **basedpyright** | 跳转定义、类型检查 | 若有 `pylsp` 则用 python-lsp-server |
+| **shfmt** | Bash 格式化 | conform 跳过 |
+| **shellcheck** | Bash 静态检查 | nvim-lint 跳过 |
 
-| 语言 | 工具 | 作用 | 怎么带进去 |
-| --- | --- | --- | --- |
-| Python | **ruff** | LSP 诊断 + import 整理 + format | 静态二进制，优先拷这个 |
-| Python | **basedpyright** | 类型检查、跳转定义（可选） | 有 `basedpyright-langserver` 才启用 |
-| Bash | **shfmt** | 格式化 | 静态二进制 |
-| Bash | **shellcheck** | 静态检查 | 静态二进制或系统包 |
-| 配置 Lua | lua-language-server、stylua | 只有还要改 Neovim 配置时才需要 | 没有则自动禁用 lua_ls |
+`bash-language-server` 需要 Node，只有 conda 源里有 `nodejs` 且你们愿意装时才值得加；日常 `shellcheck` + `shfmt` + Treesitter 够用。
 
-配置会检测 `executable()`：没有对应命令就不会去启动 LSP，避免报错刷屏。
+项目环境与编辑器环境分离时：用**项目的 conda env** 开 nvim（里面也装上 ruff），这样补全/跳转会跟对那个环境的包。不要用 Mason 的 pyright。
 
-## 联网机器上的一次同步
+## 插件怎么选（仍然要拷，conda 装不了 Lua 插件）
+
+保留 LazyVim 默认编辑器插件即可：lazy、snacks、blink、treesitter、lspconfig、conform、nvim-lint、flash、which-key、gitsigns、trouble、tokyonight、lualine、noice 等。
+
+已关掉、不必拷：catppuccin、nvim-ts-autotag。Mason 保留插件但 `ensure_installed = {}`。
+
+不要为了 Python/Bash 再拷：
+
+- `lang.python` extra（venv-selector / neotest / DAP）——换环境用 `conda activate` 即可
+- telescope / nvim-cmp / neo-tree（已有 snacks + blink）
+- 用 npm 装的 pyright、bash-language-server
+
+## 联网机器：只同步 Neovim 插件
 
 ```bash
 export NVIM_ONLINE=1
@@ -69,22 +68,9 @@ nvim --headless \
 ./scripts/export-nvim-bundle.sh /tmp/nvim-airgap.tar.gz
 ```
 
-把包拷到服务器后：
+服务器上解开：
 
-- `bundle/config` → `~/.config/nvim`（或你们的 `XDG_CONFIG_HOME/nvim`）
+- `bundle/config` → `~/.config/nvim`
 - `bundle/data/lazy` → `~/.local/share/nvim/lazy`
-- 可选 `bundle/data/mason` → `~/.local/share/nvim/mason`
-- 把 `ruff`、`shfmt`、`shellcheck` 放到 `PATH`
 
-服务器上**不要**设 `NVIM_ONLINE=1`。缺 lazy.nvim 时不会去 git clone，会提示拷贝路径。
-
-也可把 `lazy.nvim` 放到配置仓库的 `vendor/lazy.nvim`，启动脚本会回退使用它。
-
-## 日常更新（只能在能上网的机器做）
-
-1. `NVIM_ONLINE=1 nvim` → `:Lazy sync`
-2. 需要的话再 `:TSUpdate`
-3. 更新 ruff/shfmt/shellcheck 二进制
-4. 重新打 tar 覆盖服务器上的 `lazy/`（和可选的 `mason/`）
-
-不要在内网执行 `:Lazy update` / `:MasonInstall` / `:TSInstall`。
+不必把 ruff 等放进 tar；在服务器上 conda/pip 安装。也不要在内网执行 `:Lazy update` / `:MasonInstall` / `:TSInstall`。

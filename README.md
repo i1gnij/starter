@@ -3,4 +3,4 @@
 A starter template for [LazyVim](https://github.com/LazyVim/LazyVim).
 Refer to the [documentation](https://lazyvim.github.io/installation) to get started.
 
-Air-gapped / Python+Bash setup: [OFFLINE.md](./OFFLINE.md)
+内网 + conda/pip 白名单：见 [OFFLINE.md](./OFFLINE.md)。

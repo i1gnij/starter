@@ -2,6 +2,16 @@ local function exists(path)
   return (vim.uv or vim.loop).fs_stat(path) ~= nil
 end
 
+-- Conda/pip tools (ruff, basedpyright, shfmt, shellcheck) live in the active env.
+-- Do this before plugin specs run executable() checks.
+local conda_prefix = vim.env.CONDA_PREFIX
+if conda_prefix and conda_prefix ~= "" then
+  local conda_bin = conda_prefix .. "/bin"
+  if not vim.env.PATH:find(conda_bin, 1, true) then
+    vim.env.PATH = conda_bin .. ":" .. vim.env.PATH
+  end
+end
+
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 local vendor_lazy = vim.fn.stdpath("config") .. "/vendor/lazy.nvim"
 
